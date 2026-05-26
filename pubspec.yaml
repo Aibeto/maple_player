@@ -1,5 +1,5 @@
 name: maple_player
-description: "A new Flutter project."
+description: "A cross-platform music player with Liquid Glass design."
 publish_to: 'none'
 version: 0.1.0
 
@@ -9,6 +9,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  liquid_glass_widgets: ^0.11.0
+  sqflite: ^2.3.0
+  path_provider: ^2.1.0
+  path: ^1.8.0
+  permission_handler: ^11.0.0
+  file_picker: ^8.0.0
+  crypto: ^3.0.0
+  provider: ^6.1.0
+  shared_preferences: ^2.2.0
+  just_audio: ^0.9.36
+  audio_service: ^0.18.0
+  flutter_media_metadata:
+    git:
+      url: https://github.com/alexmercerind/flutter_media_metadata.git
+      ref: master
 
 dev_dependencies:
   flutter_test:
@@ -17,3 +32,11 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: MapleMonoNFCN
+      fonts:
+        - asset: assets/fonts/MapleMono-NF-CN-Regular.ttf
+        - asset: assets/fonts/MapleMono-NF-CN-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/MapleMono-NF-CN-Italic.ttf
+          style: italic

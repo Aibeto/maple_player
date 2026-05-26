@@ -1,4 +1,4 @@
-package com.example.maple_player
+package top.raincrat.maple.player
 
 import io.flutter.embedding.android.FlutterActivity
 

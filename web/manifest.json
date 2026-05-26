@@ -1,6 +1,6 @@
 {
-    "name": "maple_player",
-    "short_name": "maple_player",
+    "name": "Maple Player",
+    "short_name": "Maple Player",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
