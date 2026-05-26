@@ -3,11 +3,13 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
 import 'config/theme.dart';
 import 'providers/app_state.dart';
+import 'services/player_service.dart';
 import 'pages/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LiquidGlassWidgets.initialize();
+  await PlayerService().init();
 
   final appState = AppState();
   await appState.init();

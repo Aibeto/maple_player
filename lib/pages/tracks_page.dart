@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lpinyin/lpinyin.dart';
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../models/track.dart';
@@ -28,39 +29,28 @@ class _TracksPageState extends State<TracksPage> {
     super.dispose();
   }
 
-  List<String> _getAllLetters(List<Track> tracks) {
-    final letters = <String>{};
-    for (final track in tracks) {
-      final fl = _getFirstLetter(track);
-      letters.add(fl);
-    }
-
-    final sorted = letters.toList()
-      ..sort((a, b) {
-        if (a == '#') return 1;
-        if (b == '#') return -1;
-        return a.compareTo(b);
-      });
-
-    return sorted;
+  String _getDisplayName(Track track) {
+    return track.title.isNotEmpty
+        ? track.title
+        : track.filePath.split('/').last.split('\\').last;
   }
 
   String _getFirstLetter(Track track) {
-    final name = track.title.isNotEmpty
-        ? track.title
-        : track.filePath.split('/').last.split('\\').last;
+    final name = _getDisplayName(track);
     if (name.isEmpty) return '#';
 
     final first = name[0];
 
     if (_chineseRegex.hasMatch(first)) {
-      final code = first.codeUnitAt(0);
-      if (code >= 0x4e00 && code <= 0x9fff) {
-        return String.fromCharCode(
-          'A'.codeUnitAt(0) + ((code - 0x4e00) / 500).floor().clamp(0, 25),
-        );
+      final pinyin = PinyinHelper.getShortPinyin(name);
+      if (pinyin.isNotEmpty) {
+        final fl = pinyin[0].toUpperCase();
+        if (_alphaRegex.hasMatch(fl)) return fl;
       }
-      return 'A';
+      final code = first.codeUnitAt(0);
+      return String.fromCharCode(
+        'A'.codeUnitAt(0) + ((code - 0x4e00) / 500).floor().clamp(0, 25),
+      );
     } else if (_alphaRegex.hasMatch(first)) {
       return first.toUpperCase();
     } else if (_japaneseRegex.hasMatch(first)) {
@@ -79,16 +69,44 @@ class _TracksPageState extends State<TracksPage> {
     return '#';
   }
 
+  String _getSortKey(Track track) {
+    final name = _getDisplayName(track);
+    if (name.isEmpty) return '\uffff';
+
+    final first = name[0];
+
+    if (_chineseRegex.hasMatch(first)) {
+      final pinyin = PinyinHelper.getPinyin(name, separator: ' ');
+      return pinyin.isNotEmpty ? pinyin.toLowerCase() : name.toLowerCase();
+    } else if (_japaneseRegex.hasMatch(first)) {
+      return name;
+    } else if (_alphaRegex.hasMatch(first)) {
+      return name.toLowerCase();
+    }
+
+    return '\ufffe$name';
+  }
+
+  List<String> _getAllLetters(List<Track> tracks) {
+    final letters = <String>{};
+    for (final track in tracks) {
+      final fl = _getFirstLetter(track);
+      letters.add(fl);
+    }
+
+    final sorted = letters.toList()
+      ..sort((a, b) {
+        if (a == '#') return 1;
+        if (b == '#') return -1;
+        return a.compareTo(b);
+      });
+
+    return sorted;
+  }
+
   List<Track> _sortTracks(List<Track> tracks) {
     final sorted = List<Track>.from(tracks);
     sorted.sort((a, b) {
-      final nameA = a.title.isNotEmpty
-          ? a.title
-          : a.filePath.split('/').last.split('\\').last;
-      final nameB = b.title.isNotEmpty
-          ? b.title
-          : b.filePath.split('/').last.split('\\').last;
-
       final flA = _getFirstLetter(a);
       final flB = _getFirstLetter(b);
 
@@ -96,7 +114,9 @@ class _TracksPageState extends State<TracksPage> {
       if (flA != '#' && flB == '#') return -1;
       if (flA != flB) return flA.compareTo(flB);
 
-      return nameA.compareTo(nameB);
+      final keyA = _getSortKey(a);
+      final keyB = _getSortKey(b);
+      return keyA.compareTo(keyB);
     });
     return sorted;
   }

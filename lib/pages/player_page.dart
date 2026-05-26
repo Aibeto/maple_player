@@ -1,9 +1,10 @@
-import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../config/theme.dart';
 import '../models/track.dart';
 import '../services/player_service.dart';
+import '../utils/lrc_utils.dart';
 
 class PlayerPage extends StatefulWidget {
   const PlayerPage({super.key});
@@ -16,6 +17,7 @@ class _PlayerPageState extends State<PlayerPage>
     with SingleTickerProviderStateMixin {
   final PlayerService _playerService = PlayerService();
   final PageController _pageController = PageController();
+  StreamSubscription<Duration>? _positionSub;
 
   double _sliderValue = 0.0;
   bool _isSeeking = false;
@@ -27,90 +29,46 @@ class _PlayerPageState extends State<PlayerPage>
 
   @override
   void dispose() {
+    _positionSub?.cancel();
     _pageController.dispose();
     super.dispose();
   }
 
-  List<LrcLine> _parseLrc(String lrcContent) {
-    final lines = <LrcLine>[];
-    final regex = RegExp(r'\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)');
-
-    for (final line in lrcContent.split('\n')) {
-      final match = regex.firstMatch(line);
-      if (match != null) {
-        final min = int.parse(match.group(1)!);
-        final sec = int.parse(match.group(2)!);
-        final msStr = match.group(3)!;
-        final ms = int.parse(msStr.length == 2 ? '${msStr}0' : msStr);
-        final text = match.group(4)?.trim() ?? '';
-
-        lines.add(
-          LrcLine(
-            timestamp: Duration(minutes: min, seconds: sec, milliseconds: ms),
-            text: text,
-          ),
-        );
-      }
-    }
-
-    lines.sort((a, b) => a.timestamp.compareTo(b.timestamp));
-    return lines;
-  }
-
   Future<List<LrcLine>> _loadLrc(Track track) async {
-    final lastSlash = track.filePath.lastIndexOf('/');
-    final lastBackslash = track.filePath.lastIndexOf('\\');
-    final separator = lastSlash > lastBackslash ? '/' : '\\';
-
-    final dir = track.filePath.substring(
-      0,
-      lastSlash > lastBackslash ? lastSlash : lastBackslash,
-    );
-    final baseName = track.filePath.split(separator).last.split('.').first;
-    final lrcPath = '$dir${separator}$baseName.lrc';
-
-    try {
-      final file = File(lrcPath);
-      if (await file.exists()) {
-        final content = await file.readAsString();
-        return _parseLrc(content);
-      }
-    } catch (e) {
-      // LRC not found
-    }
-
-    return [];
+    return loadLrc(track.filePath);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: StreamBuilder<Track?>(
-        stream: _playerService.onTrackChanged,
-        initialData: _playerService.currentTrack,
-        builder: (context, trackSnapshot) {
-          final track = trackSnapshot.data;
-          if (track == null) {
-            return Center(
-              child: Text(
-                '未在播放',
-                style: AppTheme.textStyle(
-                  fontSize: 16,
-                  color: Colors.white.withValues(alpha: 0.5),
+    return LiquidGlassLayer(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: StreamBuilder<Track?>(
+          stream: _playerService.onTrackChanged,
+          initialData: _playerService.currentTrack,
+          builder: (context, trackSnapshot) {
+            final track = trackSnapshot.data;
+            if (track == null) {
+              return Center(
+                child: Text(
+                  '未在播放',
+                  style: AppTheme.textStyle(
+                    fontSize: 16,
+                    color: Colors.white.withValues(alpha: 0.5),
+                  ),
                 ),
-              ),
-            );
-          }
+              );
+            }
 
-          return FutureBuilder<List<LrcLine>>(
-            future: _loadLrc(track),
-            builder: (context, lrcSnapshot) {
-              final lrcLines = lrcSnapshot.data ?? [];
-              return _buildPlayerContent(track, lrcLines);
-            },
-          );
-        },
+            return FutureBuilder<List<LrcLine>>(
+              future: _loadLrc(track),
+              builder: (context, lrcSnapshot) {
+                final lrcLines = lrcSnapshot.data ?? [];
+                return _buildPlayerContent(track, lrcLines);
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -422,11 +380,4 @@ class _PlayerPageState extends State<PlayerPage>
     final sec = (d.inSeconds % 60).toString().padLeft(2, '0');
     return '$min:$sec';
   }
-}
-
-class LrcLine {
-  final Duration timestamp;
-  final String text;
-
-  LrcLine({required this.timestamp, required this.text});
 }

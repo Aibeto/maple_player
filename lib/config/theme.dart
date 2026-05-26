@@ -11,8 +11,8 @@ class AppTheme {
         quality: GlassQuality.standard,
       ),
       dark: GlassThemeVariant(
-        settings: const GlassThemeSettings(thickness: 50, blur: 18),
-        quality: GlassQuality.premium,
+        settings: const GlassThemeSettings(thickness: 30, blur: 12),
+        quality: GlassQuality.standard,
       ),
     );
   }

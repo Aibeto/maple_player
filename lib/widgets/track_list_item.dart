@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../config/theme.dart';
 import '../models/track.dart';
 import '../services/player_service.dart';
+import '../utils/metadata_utils.dart';
 
 class TrackListItem extends StatelessWidget {
   final Track track;
@@ -175,8 +177,21 @@ class TrackListItem extends StatelessWidget {
   }
 
   void _showTrackInfo(BuildContext context) {
-    final file = track.filePath;
-    final fileName = file.split('/').last.split('\\').last;
+    final track = this.track;
+    final file = File(track.filePath);
+    final fileName = file.path.split('/').last.split('\\').last;
+
+    Map<String, String> realMeta = {};
+    int fileSize = 0;
+    bool lrcExists = false;
+
+    try {
+      if (file.existsSync()) {
+        fileSize = file.lengthSync();
+        realMeta = extractMetadata(file);
+        lrcExists = checkLrcExists(track.filePath);
+      }
+    } catch (_) {}
 
     showModalBottomSheet(
       context: context,
@@ -211,20 +226,65 @@ class TrackListItem extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _infoRow('文件名', fileName),
-              _infoRow('标题', track.title.isNotEmpty ? track.title : '-'),
-              _infoRow('艺术家', track.artist.isNotEmpty ? track.artist : '-'),
-              _infoRow('专辑', track.album.isNotEmpty ? track.album : '-'),
-              _infoRow('年份', track.year.isNotEmpty ? track.year : '-'),
-              _infoRow('文件路径', file),
+              _infoRow('文件大小', _formatFileSize(fileSize)),
+              _infoRow('文件路径', track.filePath),
+              const SizedBox(height: 8),
+              Text(
+                '实时读取标签',
+                style: AppTheme.textStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _infoRow(
+                '标题',
+                realMeta['title']?.isNotEmpty == true
+                    ? realMeta['title']!
+                    : '-',
+              ),
+              _infoRow(
+                '艺术家',
+                realMeta['artist']?.isNotEmpty == true
+                    ? realMeta['artist']!
+                    : '-',
+              ),
+              _infoRow(
+                '专辑',
+                realMeta['album']?.isNotEmpty == true
+                    ? realMeta['album']!
+                    : '-',
+              ),
+              _infoRow(
+                '年份',
+                realMeta['year']?.isNotEmpty == true ? realMeta['year']! : '-',
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '数据库记录',
+                style: AppTheme.textStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+              const SizedBox(height: 8),
               _infoRow('MD5', track.md5),
               _infoRow('播放次数', '${track.playCount}'),
-              _infoRow('外部歌词', track.exlrc == 1 ? '是' : '否'),
+              _infoRow('外部歌词', lrcExists ? '是' : '否'),
               const SizedBox(height: 12),
             ],
           ),
         ),
       ),
     );
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   Widget _infoRow(String label, String value) {

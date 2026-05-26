@@ -4,6 +4,7 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../config/theme.dart';
 import '../models/track.dart';
 import '../services/player_service.dart';
+import '../utils/lrc_utils.dart';
 
 class MiniPlayer extends StatefulWidget {
   final VoidCallback onTap;
@@ -19,8 +20,11 @@ class _MiniPlayerState extends State<MiniPlayer>
   final PlayerService _playerService = PlayerService();
   StreamSubscription<Track?>? _trackSub;
   StreamSubscription<bool>? _playingSub;
+  StreamSubscription<Duration>? _positionSub;
   Track? _track;
   bool _isPlaying = false;
+  List<LrcLine> _lrcLines = [];
+  String _currentLyric = '';
 
   @override
   void initState() {
@@ -29,17 +33,46 @@ class _MiniPlayerState extends State<MiniPlayer>
     _isPlaying = _playerService.isPlaying;
 
     _trackSub = _playerService.onTrackChanged.listen((track) {
-      if (mounted) setState(() => _track = track);
+      if (mounted) {
+        setState(() => _track = track);
+        _loadLrcForTrack(track);
+      }
     });
     _playingSub = _playerService.onPlayingChanged.listen((playing) {
       if (mounted) setState(() => _isPlaying = playing);
     });
+    _positionSub = _playerService.onPositionChanged.listen((position) {
+      if (mounted && _lrcLines.isNotEmpty) {
+        final lyric = getCurrentLyric(_lrcLines, position);
+        if (lyric != _currentLyric) {
+          setState(() => _currentLyric = lyric);
+        }
+      }
+    });
+
+    if (_track != null) {
+      _loadLrcForTrack(_track);
+    }
+  }
+
+  Future<void> _loadLrcForTrack(Track? track) async {
+    _lrcLines = [];
+    _currentLyric = '';
+    if (track == null || track.exlrc == 0) {
+      if (mounted) setState(() {});
+      return;
+    }
+    final lines = await loadLrc(track.filePath);
+    if (mounted) {
+      setState(() => _lrcLines = lines);
+    }
   }
 
   @override
   void dispose() {
     _trackSub?.cancel();
     _playingSub?.cancel();
+    _positionSub?.cancel();
     super.dispose();
   }
 
@@ -92,8 +125,19 @@ class _MiniPlayerState extends State<MiniPlayer>
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 2),
-        _buildProgressBar(),
+        const SizedBox(height: 1),
+        if (_currentLyric.isNotEmpty)
+          Text(
+            _currentLyric,
+            style: AppTheme.textStyle(
+              fontSize: 11,
+              color: Colors.white.withValues(alpha: 0.5),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )
+        else
+          _buildProgressBar(),
       ],
     );
   }

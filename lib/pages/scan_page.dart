@@ -115,21 +115,23 @@ class _ScanPageState extends State<ScanPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: GlassAppBar(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
+        ),
         title: Text(
           '扫描曲目',
           style: AppTheme.textStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
-        leading: GlassIconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new),
-        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
-            child: GlassButton.custom(
-              onTap: _startScan,
-              child: const Text('扫描'),
+            child: TextButton(
+              onPressed: _startScan,
+              child: const Text('扫描', style: TextStyle(color: Colors.white)),
             ),
           ),
         ],
@@ -155,8 +157,12 @@ class _ScanPageState extends State<ScanPage> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  GlassButton.custom(
-                    onTap: _pickFolder,
+                  OutlinedButton(
+                    onPressed: _pickFolder,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white30),
+                    ),
                     child: const Text('添加文件夹'),
                   ),
                 ],
@@ -206,7 +212,7 @@ class _ScanPageState extends State<ScanPage> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          trailing: GlassIconButton(
+                          trailing: IconButton(
                             onPressed: () => _removeFolder(folder),
                             icon: Icon(
                               Icons.close,
@@ -224,15 +230,22 @@ class _ScanPageState extends State<ScanPage> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: GlassButton.custom(
-                          onTap: _pickFolder,
+                        child: OutlinedButton(
+                          onPressed: _pickFolder,
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            side: const BorderSide(color: Colors.white30),
+                          ),
                           child: const Text('添加文件夹'),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: GlassButton.custom(
-                          onTap: _startScan,
+                        child: FilledButton(
+                          onPressed: _startScan,
+                          style: FilledButton.styleFrom(
+                            foregroundColor: Colors.white,
+                          ),
                           child: const Text('开始扫描'),
                         ),
                       ),

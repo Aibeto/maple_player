@@ -27,18 +27,32 @@ class HomePage extends StatelessWidget {
         pageBuilder: (context, animation, secondaryAnimation) =>
             const PlayerPage(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return SlideTransition(
-            position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
-                .animate(
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0, 0.3),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                    ),
+                  ),
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.92, end: 1.0).animate(
                   CurvedAnimation(
                     parent: animation,
                     curve: Curves.easeOutCubic,
                   ),
                 ),
-            child: child,
+                child: child,
+              ),
+            ),
           );
         },
-        transitionDuration: const Duration(milliseconds: 350),
+        transitionDuration: const Duration(milliseconds: 400),
       ),
     );
   }
@@ -65,7 +79,9 @@ class HomePage extends StatelessWidget {
               left: 0,
               right: 0,
               bottom: kBottomNavigationBarHeight + 4,
-              child: MiniPlayer(onTap: () => _openPlayer(context)),
+              child: RepaintBoundary(
+                child: MiniPlayer(onTap: () => _openPlayer(context)),
+              ),
             ),
             if (appState.isScanning ||
                 appState.isProcessingMetadata ||
@@ -78,18 +94,17 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _buildBody(AppState appState) {
-    switch (appState.currentPageIndex) {
-      case 0:
-        return const TracksPage();
-      case 1:
-        return const CategoriesPage();
-      case 2:
-        return const FilesPage();
-      case 3:
-        return const SettingsPage();
-      default:
-        return const TracksPage();
-    }
+    return RepaintBoundary(
+      child: IndexedStack(
+        index: appState.currentPageIndex,
+        children: const [
+          TracksPage(),
+          CategoriesPage(),
+          FilesPage(),
+          SettingsPage(),
+        ],
+      ),
+    );
   }
 
   Widget _buildScanOverlay(AppState appState) {

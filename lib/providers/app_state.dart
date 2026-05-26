@@ -64,10 +64,19 @@ class AppState extends ChangeNotifier {
     _isScanning = true;
     _scanProgress = 0;
     _scanTotal = 0;
-    _scanStatus = '正在扫描文件夹...';
+    _scanStatus = '正在清空旧数据...';
     notifyListeners();
 
     try {
+      await DatabaseService.clearCategories();
+      await DatabaseService.clearTracks();
+      _tracks = [];
+      _albums = [];
+      _artists = [];
+
+      _scanStatus = '正在扫描文件夹...';
+      notifyListeners();
+
       final files = await ScannerService.scanFiles(folderPaths, (found) {
         _scanProgress = found;
         _scanStatus = '已找到 $_scanProgress 个文件';

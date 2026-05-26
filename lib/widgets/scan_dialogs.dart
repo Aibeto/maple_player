@@ -20,8 +20,11 @@ class ScanProgressDialog extends StatelessWidget {
 
     return PopScope(
       canPop: false,
-      child: GlassCard(
+      child: Card(
+        color: const Color(0xCC1C1C1E),
         margin: const EdgeInsets.all(32),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        elevation: 0,
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
