@@ -79,7 +79,7 @@ class _CategoriesPageState extends State<CategoriesPage>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
+      padding: EdgeInsets.zero,
       itemCount: albums.length,
       itemBuilder: (context, index) {
         final album = albums[index];
@@ -152,7 +152,7 @@ class _CategoriesPageState extends State<CategoriesPage>
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
+      padding: EdgeInsets.zero,
       itemCount: artists.length,
       itemBuilder: (context, index) {
         final artist = artists[index];

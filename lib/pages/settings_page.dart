@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../providers/app_state.dart';
 import 'scan_page.dart';
+import 'background_image_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -13,32 +14,12 @@ class SettingsPage extends StatelessWidget {
     return Consumer<AppState>(
       builder: (context, appState, _) {
         return ListView(
-          padding: const EdgeInsets.only(bottom: 80),
+          padding: const EdgeInsets.only(top: 12),
           children: [
-            const SizedBox(height: 16),
-            _buildSectionHeader('音乐库'),
-            _buildSettingsItem(
-              context,
-              icon: Icons.folder_open,
-              title: '扫描曲目',
-              subtitle: '选择文件夹并扫描音乐文件',
-              onTap: () => _navigateToScan(context),
-            ),
-            _buildSettingsItem(
-              context,
-              icon: Icons.refresh,
-              title: '重新扫描',
-              subtitle:
-                  '${appState.scanFolders.length}个文件夹 · ${appState.tracks.length}首曲目',
-              onTap: () {
-                if (appState.scanFolders.isNotEmpty) {
-                  appState.rescanAll();
-                } else {
-                  _navigateToScan(context);
-                }
-              },
-            ),
-            const SizedBox(height: 8),
+            _buildScanEntry(context, appState),
+            const SizedBox(height: 12),
+            _buildBackgroundEntry(context, appState),
+            const SizedBox(height: 12),
             _buildSectionHeader('扫描文件夹'),
             ...appState.scanFolders.map((folder) {
               return _buildSettingsItem(
@@ -86,10 +67,131 @@ class SettingsPage extends StatelessWidget {
     );
   }
 
+  Widget _buildScanEntry(BuildContext context, AppState appState) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: GestureDetector(
+        onTap: () => _navigateToScan(context),
+        child: GlassContainer(
+          shape: LiquidRoundedSuperellipse(borderRadius: 16),
+          quality: GlassQuality.standard,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                GlassContainer(
+                  width: 48,
+                  height: 48,
+                  shape: LiquidRoundedSuperellipse(borderRadius: 14),
+                  quality: GlassQuality.premium,
+                  child: const Icon(
+                    Icons.auto_awesome,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '进入曲目扫描',
+                        style: AppTheme.textStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        appState.scanFolders.isEmpty
+                            ? '选择文件夹，开始扫描音乐文件'
+                            : '${appState.scanFolders.length}个文件夹 · ${appState.tracks.length}首曲目',
+                        style: AppTheme.textStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.white30),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _navigateToScan(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ScanPage()),
+    );
+  }
+
+  Widget _buildBackgroundEntry(BuildContext context, AppState appState) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: GestureDetector(
+        onTap: () => _navigateToBackground(context),
+        child: GlassContainer(
+          shape: LiquidRoundedSuperellipse(borderRadius: 16),
+          quality: GlassQuality.standard,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                GlassContainer(
+                  width: 48,
+                  height: 48,
+                  shape: LiquidRoundedSuperellipse(borderRadius: 14),
+                  quality: GlassQuality.premium,
+                  child: const Icon(
+                    Icons.wallpaper,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '自定义背景',
+                        style: AppTheme.textStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        appState.backgroundImagePath != null
+                            ? '已设置自定义背景图片'
+                            : '设置个性化背景图片',
+                        style: AppTheme.textStyle(
+                          fontSize: 12,
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.white30),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToBackground(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const BackgroundImagePage()),
     );
   }
 

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
@@ -57,15 +58,26 @@ class HomePage extends StatelessWidget {
     );
   }
 
+  static const double _miniPlayerHeight = 64;
+  static const double _miniPlayerMargin = 8;
+
   @override
   Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final navBarHeight = kBottomNavigationBarHeight + bottomPadding;
+    final miniPlayerOffset = navBarHeight + _miniPlayerMargin;
+
     return Consumer<AppState>(
       builder: (context, appState, _) {
         return Stack(
           children: [
+            _buildBackground(appState),
             Scaffold(
               backgroundColor: Colors.transparent,
-              body: _buildBody(appState),
+              body: _buildBody(
+                appState,
+                miniPlayerOffset + _miniPlayerHeight + _miniPlayerMargin,
+              ),
               bottomNavigationBar: GlassBottomBar(
                 selectedIndex: appState.currentPageIndex,
                 onTabSelected: (index) => appState.setPageIndex(index),
@@ -78,31 +90,51 @@ class HomePage extends StatelessWidget {
             Positioned(
               left: 0,
               right: 0,
-              bottom: kBottomNavigationBarHeight + 4,
+              bottom: miniPlayerOffset,
               child: RepaintBoundary(
                 child: MiniPlayer(onTap: () => _openPlayer(context)),
               ),
             ),
-            if (appState.isScanning ||
-                appState.isProcessingMetadata ||
-                appState.isBuildingCategories)
-              _buildScanOverlay(appState),
+            if (appState.isScanning) _buildScanOverlay(appState),
           ],
         );
       },
     );
   }
 
-  Widget _buildBody(AppState appState) {
+  Widget _buildBackground(AppState appState) {
+    if (appState.backgroundImagePath != null) {
+      final file = File(appState.backgroundImagePath!);
+      if (file.existsSync()) {
+        return Positioned.fill(
+          child: Image.file(
+            file,
+            fit: BoxFit.cover,
+            color: Colors.black.withValues(alpha: 0.3),
+            colorBlendMode: BlendMode.darken,
+          ),
+        );
+      }
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildBody(AppState appState, double bottomPadding) {
     return RepaintBoundary(
-      child: IndexedStack(
-        index: appState.currentPageIndex,
-        children: const [
-          TracksPage(),
-          CategoriesPage(),
-          FilesPage(),
-          SettingsPage(),
-        ],
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomPadding),
+          child: IndexedStack(
+            index: appState.currentPageIndex,
+            children: const [
+              TracksPage(),
+              CategoriesPage(),
+              FilesPage(),
+              SettingsPage(),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -116,6 +148,8 @@ class HomePage extends StatelessWidget {
             status: appState.scanStatus,
             progress: appState.scanProgress,
             total: appState.scanTotal,
+            currentFile: appState.currentProcessingFile,
+            recentFiles: appState.recentProcessedFiles,
           ),
         ),
       ),

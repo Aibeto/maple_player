@@ -1,16 +1,51 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../config/theme.dart';
 import '../models/track.dart';
 import '../services/player_service.dart';
+import '../utils/cover_utils.dart';
 import '../utils/metadata_utils.dart';
 
-class TrackListItem extends StatelessWidget {
+class TrackListItem extends StatefulWidget {
   final Track track;
   final VoidCallback? onMoreTap;
 
   const TrackListItem({super.key, required this.track, this.onMoreTap});
+
+  @override
+  State<TrackListItem> createState() => _TrackListItemState();
+}
+
+class _TrackListItemState extends State<TrackListItem> {
+  Uint8List? _coverData;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCover();
+  }
+
+  @override
+  void didUpdateWidget(covariant TrackListItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.track.filePath != widget.track.filePath) {
+      _coverData = null;
+      _loadCover();
+    }
+  }
+
+  Future<void> _loadCover() async {
+    final data = extractCoverArtFromPath(widget.track.filePath);
+    if (mounted) {
+      setState(() {
+        _coverData = data;
+      });
+    }
+  }
+
+  Track get track => widget.track;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +79,19 @@ class TrackListItem extends StatelessWidget {
         width: 48,
         height: 48,
         color: Colors.white.withValues(alpha: 0.12),
-        child: const Icon(Icons.music_note, color: Colors.white54, size: 24),
+        child: _coverData != null
+            ? Image.memory(
+                _coverData!,
+                width: 48,
+                height: 48,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.music_note,
+                  color: Colors.white54,
+                  size: 24,
+                ),
+              )
+            : const Icon(Icons.music_note, color: Colors.white54, size: 24),
       ),
     );
   }

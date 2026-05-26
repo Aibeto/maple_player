@@ -1,4 +1,7 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as p;
 import '../config/constants.dart';
 import '../models/track.dart';
@@ -8,9 +11,23 @@ import '../models/scan_folder.dart';
 
 class DatabaseService {
   static Database? _database;
+  static bool _ffiInitialized = false;
+
+  static void _initFfi() {
+    if (_ffiInitialized) return;
+    _ffiInitialized = true;
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
+  static bool get _needsFfi {
+    if (kIsWeb) return false;
+    return Platform.isWindows || Platform.isLinux;
+  }
 
   static Future<Database> get database async {
     if (_database != null) return _database!;
+    if (_needsFfi) _initFfi();
     _database = await _initDatabase();
     return _database!;
   }
@@ -19,7 +36,12 @@ class DatabaseService {
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, AppConstants.dbName);
 
-    return await openDatabase(path, version: 1, onCreate: _createTables);
+    return await openDatabase(
+      path,
+      version: 2,
+      onCreate: _createTables,
+      onUpgrade: _upgradeTables,
+    );
   }
 
   static Future<void> _createTables(Database db, int version) async {
@@ -77,6 +99,28 @@ class DatabaseService {
         path TEXT UNIQUE
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE ${AppConstants.settingsTable} (
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
+  }
+
+  static Future<void> _upgradeTables(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ${AppConstants.settingsTable} (
+          key TEXT PRIMARY KEY,
+          value TEXT
+        )
+      ''');
+    }
   }
 
   static Future<bool> isFirstLaunch() async {
@@ -251,5 +295,35 @@ class DatabaseService {
       where: 'path = ?',
       whereArgs: [path],
     );
+  }
+
+  static Future<String?> getBackgroundImagePath() async {
+    final db = await database;
+    final result = await db.query(
+      AppConstants.settingsTable,
+      where: 'key = ?',
+      whereArgs: ['background_image'],
+      limit: 1,
+    );
+    if (result.isNotEmpty) {
+      return result.first['value'] as String?;
+    }
+    return null;
+  }
+
+  static Future<void> setBackgroundImagePath(String? path) async {
+    final db = await database;
+    if (path == null) {
+      await db.delete(
+        AppConstants.settingsTable,
+        where: 'key = ?',
+        whereArgs: ['background_image'],
+      );
+    } else {
+      await db.insert(AppConstants.settingsTable, {
+        'key': 'background_image',
+        'value': path,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
   }
 }

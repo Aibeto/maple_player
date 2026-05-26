@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../config/theme.dart';
 import '../models/track.dart';
 import '../services/player_service.dart';
+import '../utils/cover_utils.dart';
 import '../utils/lrc_utils.dart';
 
 class PlayerPage extends StatefulWidget {
@@ -77,6 +79,7 @@ class _PlayerPageState extends State<PlayerPage>
     final hasLrc = lrcLines.isNotEmpty;
 
     return PageView(
+      clipBehavior: Clip.hardEdge,
       controller: _pageController,
       children: [
         _buildMainPlayer(track),
@@ -91,7 +94,7 @@ class _PlayerPageState extends State<PlayerPage>
         children: [
           _buildAppBar(track),
           const Spacer(),
-          _buildCoverArt(),
+          _buildCoverArt(track),
           const SizedBox(height: 32),
           _buildTrackTitle(track),
           const SizedBox(height: 8),
@@ -134,16 +137,45 @@ class _PlayerPageState extends State<PlayerPage>
     );
   }
 
-  Widget _buildCoverArt() {
-    return GlassContainer(
-      width: 280,
-      height: 280,
-      shape: LiquidRoundedSuperellipse(borderRadius: 24),
-      quality: GlassQuality.premium,
-      child: const Center(
-        child: Icon(Icons.music_note, color: Colors.white38, size: 80),
-      ),
+  Widget _buildCoverArt(Track track) {
+    return FutureBuilder<Uint8List?>(
+      future: _loadCoverArt(track.filePath),
+      builder: (context, snapshot) {
+        final coverData = snapshot.data;
+        return GlassContainer(
+          width: 280,
+          height: 280,
+          shape: LiquidRoundedSuperellipse(borderRadius: 24),
+          quality: GlassQuality.premium,
+          child: coverData != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Image.memory(
+                    coverData,
+                    width: 280,
+                    height: 280,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.music_note,
+                      color: Colors.white38,
+                      size: 80,
+                    ),
+                  ),
+                )
+              : const Center(
+                  child: Icon(
+                    Icons.music_note,
+                    color: Colors.white38,
+                    size: 80,
+                  ),
+                ),
+        );
+      },
     );
+  }
+
+  Future<Uint8List?> _loadCoverArt(String filePath) async {
+    return extractCoverArtFromPath(filePath);
   }
 
   Widget _buildTrackTitle(Track track) {
@@ -286,58 +318,61 @@ class _PlayerPageState extends State<PlayerPage>
   }
 
   Widget _buildLyricsView(Track track, List<LrcLine> lrcLines) {
-    return SafeArea(
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              children: [
-                GlassIconButton(
-                  onPressed: () {
-                    _pageController.animateToPage(
-                      0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                    );
-                  },
-                  icon: const Icon(Icons.album, size: 22),
-                ),
-                const Spacer(),
-                GlassIconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.keyboard_arrow_down, size: 32),
-                ),
-              ],
+    return Container(
+      color: const Color(0xFF1C1C1E),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  GlassIconButton(
+                    onPressed: () {
+                      _pageController.animateToPage(
+                        0,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOut,
+                      );
+                    },
+                    icon: const Icon(Icons.album, size: 22),
+                  ),
+                  const Spacer(),
+                  GlassIconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.keyboard_arrow_down, size: 32),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            track.title.isNotEmpty ? track.title : '未知曲目',
-            style: AppTheme.textStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+            const SizedBox(height: 8),
+            Text(
+              track.title.isNotEmpty ? track.title : '未知曲目',
+              style: AppTheme.textStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            track.artist.isNotEmpty ? track.artist : '-',
-            style: AppTheme.textStyle(fontSize: 13, color: Colors.white60),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: StreamBuilder<Duration>(
-              stream: _playerService.onPositionChanged,
-              initialData: _playerService.position,
-              builder: (context, snapshot) {
-                final position = snapshot.data ?? Duration.zero;
-                return _buildLyricsList(lrcLines, position);
-              },
+            const SizedBox(height: 4),
+            Text(
+              track.artist.isNotEmpty ? track.artist : '-',
+              style: AppTheme.textStyle(fontSize: 13, color: Colors.white60),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+            Expanded(
+              child: StreamBuilder<Duration>(
+                stream: _playerService.onPositionChanged,
+                initialData: _playerService.position,
+                builder: (context, snapshot) {
+                  final position = snapshot.data ?? Duration.zero;
+                  return _buildLyricsList(lrcLines, position);
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

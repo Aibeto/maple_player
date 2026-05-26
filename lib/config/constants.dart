@@ -6,6 +6,7 @@ class AppConstants {
   static const String scanFoldersTable = 'scan_folders';
   static const String albumTracksTable = 'album_tracks';
   static const String artistTracksTable = 'artist_tracks';
+  static const String settingsTable = 'settings';
 
   static const List<String> audioExtensions = [
     '.mp3',

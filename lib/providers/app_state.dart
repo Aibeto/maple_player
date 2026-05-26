@@ -12,12 +12,13 @@ class AppState extends ChangeNotifier {
 
   bool _isFirstLaunch = true;
   bool _isScanning = false;
-  bool _isProcessingMetadata = false;
-  bool _isBuildingCategories = false;
   int _currentPageIndex = 0;
   int _scanProgress = 0;
   int _scanTotal = 0;
   String _scanStatus = '';
+  String _currentProcessingFile = '';
+  final List<String> _recentProcessedFiles = [];
+  static const int _maxRecentFiles = 20;
 
   List<Track> _tracks = [];
   List<Album> _albums = [];
@@ -26,19 +27,24 @@ class AppState extends ChangeNotifier {
 
   bool get isFirstLaunch => _isFirstLaunch;
   bool get isScanning => _isScanning;
-  bool get isProcessingMetadata => _isProcessingMetadata;
-  bool get isBuildingCategories => _isBuildingCategories;
   int get currentPageIndex => _currentPageIndex;
   int get scanProgress => _scanProgress;
   int get scanTotal => _scanTotal;
   String get scanStatus => _scanStatus;
+  String get currentProcessingFile => _currentProcessingFile;
+  List<String> get recentProcessedFiles =>
+      List.unmodifiable(_recentProcessedFiles);
   List<Track> get tracks => _tracks;
   List<Album> get albums => _albums;
   List<Artist> get artists => _artists;
   List<ScanFolder> get scanFolders => _scanFolders;
 
+  String? _backgroundImagePath;
+  String? get backgroundImagePath => _backgroundImagePath;
+
   Future<void> init() async {
     _isFirstLaunch = await DatabaseService.isFirstLaunch();
+    _backgroundImagePath = await DatabaseService.getBackgroundImagePath();
     if (!_isFirstLaunch) {
       await loadData();
     }
@@ -60,11 +66,25 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setBackgroundImagePath(String? path) async {
+    _backgroundImagePath = path;
+    await DatabaseService.setBackgroundImagePath(path);
+    notifyListeners();
+  }
+
+  Future<void> clearBackgroundImage() async {
+    _backgroundImagePath = null;
+    await DatabaseService.setBackgroundImagePath(null);
+    notifyListeners();
+  }
+
   Future<void> startScan(List<String> folderPaths) async {
     _isScanning = true;
     _scanProgress = 0;
     _scanTotal = 0;
-    _scanStatus = '正在清空旧数据...';
+    _scanStatus = '正在扫描文件夹...';
+    _currentProcessingFile = '';
+    _recentProcessedFiles.clear();
     notifyListeners();
 
     try {
@@ -74,73 +94,35 @@ class AppState extends ChangeNotifier {
       _albums = [];
       _artists = [];
 
-      _scanStatus = '正在扫描文件夹...';
+      await ScannerService.scanAndProcess(
+        folderPaths,
+        (filePath) {
+          _currentProcessingFile = filePath.split('/').last.split('\\').last;
+          notifyListeners();
+        },
+        (fileName, processed, total) {
+          _scanProgress = processed;
+          _scanTotal = total;
+          _scanStatus = '处理标签: $processed / $total';
+          if (fileName.isNotEmpty) {
+            _recentProcessedFiles.add(fileName);
+            if (_recentProcessedFiles.length > _maxRecentFiles) {
+              _recentProcessedFiles.removeAt(0);
+            }
+          }
+          notifyListeners();
+        },
+      );
+
+      _scanStatus = '正在构建归类...';
       notifyListeners();
-
-      final files = await ScannerService.scanFiles(folderPaths, (found) {
-        _scanProgress = found;
-        _scanStatus = '已找到 $_scanProgress 个文件';
-        notifyListeners();
-      });
-
-      if (files.isEmpty) {
-        _isScanning = false;
-        notifyListeners();
-        return;
-      }
 
       _isScanning = false;
-      notifyListeners();
-
-      await _processMetadata(files);
-    } catch (e) {
-      _isScanning = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _processMetadata(List<String> files) async {
-    _isProcessingMetadata = true;
-    _scanProgress = 0;
-    _scanTotal = files.length;
-    _scanStatus = '正在扫描标签信息...';
-    notifyListeners();
-
-    try {
-      await ScannerService.processMetadata(files, (processed, total) {
-        _scanProgress = processed;
-        _scanTotal = total;
-        _scanStatus = '处理标签: $processed / $total';
-        notifyListeners();
-      });
-
-      _isProcessingMetadata = false;
-      notifyListeners();
-
-      await _buildCategories();
-    } catch (e) {
-      _isProcessingMetadata = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _buildCategories() async {
-    _isBuildingCategories = true;
-    _scanStatus = '正在构建归类信息...';
-    notifyListeners();
-
-    try {
-      await ScannerService.buildCategories((status) {
-        _scanStatus = status;
-        notifyListeners();
-      });
-
-      _isBuildingCategories = false;
       notifyListeners();
 
       await loadData();
     } catch (e) {
-      _isBuildingCategories = false;
+      _isScanning = false;
       notifyListeners();
     }
   }

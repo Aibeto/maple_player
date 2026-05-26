@@ -180,7 +180,7 @@ class _TracksPageState extends State<TracksPage> {
           children: [
             ListView.builder(
               controller: _scrollController,
-              padding: const EdgeInsets.only(top: 8, bottom: 80, right: 28),
+              padding: const EdgeInsets.only(top: 8, right: 28),
               itemCount: tracks.length,
               itemBuilder: (context, index) {
                 return TrackListItem(track: tracks[index], onMoreTap: () {});

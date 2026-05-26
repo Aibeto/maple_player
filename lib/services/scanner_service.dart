@@ -210,6 +210,153 @@ Future<List<Map<String, dynamic>>> _processBatchInIsolate(
 }
 
 class ScannerService {
+  static Future<int> scanAndProcess(
+    List<String> folderPaths,
+    void Function(String filePath) onFileFound,
+    void Function(String fileName, int processed, int total) onProgress,
+  ) async {
+    int newCount = 0;
+    final allFilePaths = <String>[];
+    final visited = <String>{};
+
+    for (final folderPath in folderPaths) {
+      final stack = <String>[folderPath];
+
+      while (stack.isNotEmpty) {
+        final dirPath = stack.removeLast();
+        if (visited.contains(dirPath)) continue;
+        visited.add(dirPath);
+
+        Directory dir;
+        try {
+          dir = Directory(dirPath);
+          if (!await dir.exists()) continue;
+        } catch (e) {
+          continue;
+        }
+
+        try {
+          await for (final entity in dir.list()) {
+            if (entity is File && _isAudioFile(entity.path)) {
+              allFilePaths.add(entity.path);
+              onFileFound(entity.path);
+            } else if (entity is Directory) {
+              stack.add(entity.path);
+            }
+          }
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+
+    final total = allFilePaths.length;
+
+    if (allFilePaths.isEmpty) {
+      await _buildCategoriesInternal();
+      return 0;
+    }
+
+    final cpuCount = Platform.numberOfProcessors;
+    final batchSize = (total / cpuCount).ceil().clamp(1, 50);
+
+    final batches = <List<String>>[];
+    for (int i = 0; i < total; i += batchSize) {
+      final end = (i + batchSize).clamp(0, total);
+      batches.add(allFilePaths.sublist(i, end));
+    }
+
+    int processed = 0;
+
+    final futures = batches.map((batch) async {
+      final results = await Isolate.run(() => _processBatchInIsolate(batch));
+      return results;
+    });
+
+    final allResults = await Future.wait(futures);
+
+    for (final batchResults in allResults) {
+      for (final map in batchResults) {
+        try {
+          final track = Track(
+            title: map['title'] as String,
+            artist: map['artist'] as String,
+            album: map['album'] as String,
+            year: map['year'] as String,
+            filePath: map['file_path'] as String,
+            md5: map['md5'] as String,
+            playCount: map['play_count'] as int,
+            exlrc: map['exlrc'] as int,
+          );
+
+          await DatabaseService.insertTrack(track);
+          newCount++;
+
+          final fileName = p.basename(track.filePath);
+          processed++;
+          onProgress(fileName, processed, total);
+        } catch (e) {
+          processed++;
+          onProgress('', processed, total);
+        }
+      }
+    }
+
+    await _buildCategoriesInternal();
+    return newCount;
+  }
+
+  static Future<void> _buildCategoriesInternal() async {
+    await _buildAlbums();
+    await _buildArtists();
+  }
+
+  static Future<void> _buildAlbums() async {
+    final tracks = await DatabaseService.getAllTracks();
+    final albumMap = <String, List<Track>>{};
+
+    for (final track in tracks) {
+      if (track.album.isEmpty) continue;
+      albumMap.putIfAbsent(track.album, () => []).add(track);
+    }
+
+    await DatabaseService.clearCategories();
+
+    for (final entry in albumMap.entries) {
+      final albumName = entry.key;
+      final albumTracks = entry.value;
+      final titles = albumTracks.map((t) => t.title).toList();
+
+      final artists = albumTracks
+          .where((t) => t.artist.isNotEmpty)
+          .map((t) => t.artist)
+          .toSet();
+      final years = albumTracks
+          .where((t) => t.year.isNotEmpty)
+          .map((t) => t.year)
+          .toSet();
+
+      final artist = artists.length == 1 ? artists.first : '';
+      final year = years.length == 1 ? years.first : '';
+
+      await DatabaseService.insertAlbum(albumName, artist, year, titles);
+    }
+  }
+
+  static Future<void> _buildArtists() async {
+    final tracks = await DatabaseService.getAllTracks();
+    final artistMap = <String, Set<String>>{};
+
+    for (final track in tracks) {
+      if (track.artist.isEmpty) continue;
+      artistMap.putIfAbsent(track.artist, () => {}).add(track.title);
+    }
+
+    for (final entry in artistMap.entries) {
+      await DatabaseService.insertArtist(entry.key, entry.value.toList());
+    }
+  }
+
   static Future<List<String>> scanFiles(
     List<String> folderPaths,
     void Function(int found) onProgress,
@@ -314,51 +461,5 @@ class ScannerService {
 
     onProgress('构建艺术家信息...');
     await _buildArtists();
-  }
-
-  static Future<void> _buildAlbums() async {
-    final tracks = await DatabaseService.getAllTracks();
-    final albumMap = <String, List<Track>>{};
-
-    for (final track in tracks) {
-      if (track.album.isEmpty) continue;
-      albumMap.putIfAbsent(track.album, () => []).add(track);
-    }
-
-    await DatabaseService.clearCategories();
-
-    for (final entry in albumMap.entries) {
-      final albumName = entry.key;
-      final albumTracks = entry.value;
-      final titles = albumTracks.map((t) => t.title).toList();
-
-      final artists = albumTracks
-          .where((t) => t.artist.isNotEmpty)
-          .map((t) => t.artist)
-          .toSet();
-      final years = albumTracks
-          .where((t) => t.year.isNotEmpty)
-          .map((t) => t.year)
-          .toSet();
-
-      final artist = artists.length == 1 ? artists.first : '';
-      final year = years.length == 1 ? years.first : '';
-
-      await DatabaseService.insertAlbum(albumName, artist, year, titles);
-    }
-  }
-
-  static Future<void> _buildArtists() async {
-    final tracks = await DatabaseService.getAllTracks();
-    final artistMap = <String, Set<String>>{};
-
-    for (final track in tracks) {
-      if (track.artist.isEmpty) continue;
-      artistMap.putIfAbsent(track.artist, () => {}).add(track.title);
-    }
-
-    for (final entry in artistMap.entries) {
-      await DatabaseService.insertArtist(entry.key, entry.value.toList());
-    }
   }
 }

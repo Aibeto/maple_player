@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../providers/app_state.dart';
@@ -32,54 +33,31 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   Future<void> _pickFolder() async {
-    final hasPermission = await PermissionService.requestStoragePermission();
-    if (!hasPermission) {
-      if (mounted) {
-        _showError('请授予"管理所有文件"权限以选择文件夹');
-      }
-      return;
-    }
-
-    final controller = TextEditingController();
-    final selected = await GlassDialog.show<String>(
-      context: context,
-      title: '输入文件夹路径',
-      message: '请输入完整的文件夹路径，例如：\n/storage/emulated/0/Music',
-      content: GlassTextField(
-        controller: controller,
-        placeholder: '/storage/emulated/0/Music',
-      ),
-      actions: [
-        GlassDialogAction(label: '取消', onPressed: () => Navigator.pop(context)),
-        GlassDialogAction(
-          label: '确定',
-          isPrimary: true,
-          onPressed: () {
-            final path = controller.text.trim();
-            if (path.isNotEmpty) {
-              Navigator.pop(context, path);
-            }
-          },
-        ),
-      ],
-    );
-
-    if (selected != null && selected.isNotEmpty) {
+    final result = await FilePicker.platform.getDirectoryPath();
+    if (result != null && result.isNotEmpty) {
       setState(() {
-        if (!_selectedFolders.contains(selected)) {
-          _selectedFolders.add(selected);
+        if (!_selectedFolders.contains(result)) {
+          _selectedFolders.add(result);
         }
       });
     }
   }
 
   void _showError(String message) {
-    GlassDialog.show(
+    if (!mounted) return;
+    showDialog(
       context: context,
-      message: message,
-      actions: [
-        GlassDialogAction(label: '确定', onPressed: () => Navigator.pop(context)),
-      ],
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1C1C1E),
+        title: const Text('提示', style: TextStyle(color: Colors.white)),
+        content: Text(message, style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('确定'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -173,12 +151,22 @@ class _ScanPageState extends State<ScanPage> {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Text(
-                    '已选择 ${_selectedFolders.length} 个文件夹',
-                    style: AppTheme.textStyle(
-                      fontSize: 14,
-                      color: Colors.white60,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '已选择 ${_selectedFolders.length} 个文件夹',
+                        style: AppTheme.textStyle(
+                          fontSize: 14,
+                          color: Colors.white60,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: _pickFolder,
+                        child: const Icon(Icons.add_circle_outline,
+                            color: Colors.white70, size: 24),
+                      ),
+                    ],
                   ),
                 ),
                 Expanded(

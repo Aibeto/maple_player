@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import '../config/theme.dart';
 import '../models/track.dart';
 import '../services/player_service.dart';
+import '../utils/cover_utils.dart';
 import '../utils/lrc_utils.dart';
 
 class MiniPlayer extends StatefulWidget {
@@ -25,6 +27,7 @@ class _MiniPlayerState extends State<MiniPlayer>
   bool _isPlaying = false;
   List<LrcLine> _lrcLines = [];
   String _currentLyric = '';
+  Uint8List? _coverData;
 
   @override
   void initState() {
@@ -36,6 +39,7 @@ class _MiniPlayerState extends State<MiniPlayer>
       if (mounted) {
         setState(() => _track = track);
         _loadLrcForTrack(track);
+        _loadCoverForTrack(track);
       }
     });
     _playingSub = _playerService.onPlayingChanged.listen((playing) {
@@ -52,6 +56,7 @@ class _MiniPlayerState extends State<MiniPlayer>
 
     if (_track != null) {
       _loadLrcForTrack(_track);
+      _loadCoverForTrack(_track);
     }
   }
 
@@ -65,6 +70,18 @@ class _MiniPlayerState extends State<MiniPlayer>
     final lines = await loadLrc(track.filePath);
     if (mounted) {
       setState(() => _lrcLines = lines);
+    }
+  }
+
+  Future<void> _loadCoverForTrack(Track? track) async {
+    if (track == null) {
+      _coverData = null;
+      if (mounted) setState(() {});
+      return;
+    }
+    final data = extractCoverArtFromPath(track.filePath);
+    if (mounted) {
+      setState(() => _coverData = data);
     }
   }
 
@@ -109,7 +126,19 @@ class _MiniPlayerState extends State<MiniPlayer>
         width: 44,
         height: 44,
         color: Colors.white.withValues(alpha: 0.15),
-        child: const Icon(Icons.music_note, color: Colors.white70, size: 24),
+        child: _coverData != null
+            ? Image.memory(
+                _coverData!,
+                width: 44,
+                height: 44,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.music_note,
+                  color: Colors.white70,
+                  size: 24,
+                ),
+              )
+            : const Icon(Icons.music_note, color: Colors.white70, size: 24),
       ),
     );
   }
@@ -191,11 +220,14 @@ class _MiniPlayerState extends State<MiniPlayer>
         ),
         GestureDetector(
           onTap: () => _playerService.playPause(),
-          child: GlassContainer(
+          child: Container(
             width: 40,
             height: 40,
-            shape: LiquidRoundedSuperellipse(borderRadius: 20),
-            quality: GlassQuality.premium,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
             child: Icon(
               _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
               color: Colors.white,
